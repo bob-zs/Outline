@@ -1,0 +1,17 @@
+name: Push Button from Site
+
+on:
+  workflow_dispatch:
+
+jobs:
+  example-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🛠️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Show current branch
+        run: echo "Running on branch ${{ github.ref }}"
+
+      - name: 📦 List files
+        run: ls -la

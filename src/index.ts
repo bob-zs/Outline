@@ -158,6 +158,11 @@ app.get("/repos/:owner/:repo/pulls", async (req, res) => {
                     <td>${pr.reviewers.join(", ") || "None"}</td>
                     <td>${pr.mergeable_state}</td>
                     <td>${pr.ready_to_merge ? "✅ Ready" : "❌ Not Ready"}</td>
+										<td>
+											<form method="POST" action="/repos/${owner}/${repo}/pulls/${pr.number}/dispatch">
+													<button type="submit">🚀 Run Workflow</button>
+											</form>
+									</td>
                 </tr>
             `,
 		);
@@ -174,6 +179,7 @@ app.get("/repos/:owner/:repo/pulls", async (req, res) => {
                         <th>Reviewers</th>
                         <th>Mergeable State</th>
                         <th>Ready to Merge?</th>
+												<th>Actions</th>
                     </tr>
                     ${tableRows.join("")}
                 </table>
@@ -185,6 +191,34 @@ app.get("/repos/:owner/:repo/pulls", async (req, res) => {
 		res.send(html);
 	} catch (err) {
 		res.status(500).send(`Failed to fetch enriched PRs: ${err}`);
+	}
+});
+
+app.post("/repos/:owner/:repo/pulls/:number/dispatch", async (req, res) => {
+	if (!octokit) return res.redirect("/");
+
+	const { owner, repo, number } = req.params;
+
+	try {
+		const { data: pr } = await octokit.rest.pulls.get({
+			owner,
+			repo,
+			pull_number: parseInt(number),
+		});
+
+		await octokit.rest.actions.createWorkflowDispatch({
+			owner,
+			repo,
+			workflow_id: "ci.yml", // use your actual workflow file name
+			ref: pr.head.ref,
+			inputs: {}, // add workflow inputs if needed
+		});
+
+		res.send(
+			`✅ Workflow dispatched on branch <strong>${pr.head.ref}</strong> for PR #${pr.number}`,
+		);
+	} catch (err) {
+		res.status(500).send(`Failed to dispatch workflow: ${err}`);
 	}
 });
 
