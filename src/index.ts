@@ -13,6 +13,17 @@ const client_secret = process.env.CLIENT_SECRET;
 let accessToken = "";
 let octokit: Octokit;
 
+app.use((req, res, next) => {
+	// Skip login check for public routes
+	if (req.path === "/" || req.path.startsWith("/oauth-callback")) {
+		return next();
+	}
+	if (!accessToken || !octokit) {
+		return res.redirect("/");
+	}
+	next();
+});
+
 const GITHUB_AUTH_HTML_A_TAG = `<a href="https://github.com/login/oauth/authorize?client_id=${client_id}&scope=repo">Login with GitHub</a>`;
 app.get("/", (_req, res) => {
 	res.send(GITHUB_AUTH_HTML_A_TAG);
@@ -53,7 +64,6 @@ app.get("/repos", async (_req, res) => {
 	try {
 		const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser();
 
-		console.log({ repos });
 		const enrichedRepos = await Promise.all(
 			repos.map(async (repo) => {
 				const { data: prs } = await octokit.rest.pulls.list({
@@ -61,10 +71,6 @@ app.get("/repos", async (_req, res) => {
 					repo: repo.name,
 					state: "open",
 				});
-
-				if (repo.name === "actionsAndEnv") {
-					console.log({ repo });
-				}
 
 				return {
 					name: repo.name,
@@ -76,19 +82,19 @@ app.get("/repos", async (_req, res) => {
 				};
 			}),
 		);
-		// console.log({ enrichedRepos });
-
-		// HTML table display
-		const tableRows = enrichedRepos.map(
-			(r) => `
+		const tableRows = enrichedRepos
+			.sort((r1, r2) => r2.pr_count - r1.pr_count)
+			.map((r) => {
+				const repoPullsLink = `<a href="/repos/${r.owner}/${r.name}/pulls">${r.pr_count} PR${r.pr_count !== 1 ? "s" : ""}</a>`;
+				return `
 							<tr>
 									<td><a href="${r.html_url}" target="_blank">${r.name}</a></td>
 									<td>${r.full_name}</td>
 									<td>${r.private ? "🔒 Private" : "🌐 Public"}</td>
-									<td><a href="/repos/${r.owner}/${r.name}/pulls">${r.pr_count} PR${r.pr_count !== 1 ? "s" : ""}</a></td>
+									<td>${r.pr_count > 0 ? repoPullsLink : `0 PRs`}</td>
 							</tr>
-					`,
-		);
+					`;
+			});
 
 		const html = `
 					<html>
