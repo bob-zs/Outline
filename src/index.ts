@@ -53,6 +53,7 @@ app.get("/repos", async (_req, res) => {
 	try {
 		const { data: repos } = await octokit.rest.repos.listForAuthenticatedUser();
 
+		console.log({ repos });
 		const enrichedRepos = await Promise.all(
 			repos.map(async (repo) => {
 				const { data: prs } = await octokit.rest.pulls.list({
@@ -67,6 +68,7 @@ app.get("/repos", async (_req, res) => {
 
 				return {
 					name: repo.name,
+					owner: repo.owner.login,
 					full_name: repo.full_name,
 					private: repo.private,
 					html_url: repo.html_url,
@@ -74,6 +76,7 @@ app.get("/repos", async (_req, res) => {
 				};
 			}),
 		);
+		// console.log({ enrichedRepos });
 
 		// HTML table display
 		const tableRows = enrichedRepos.map(
