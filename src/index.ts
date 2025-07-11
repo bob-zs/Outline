@@ -144,7 +144,39 @@ app.get("/repos/:owner/:repo/pulls", async (req, res) => {
 			}),
 		);
 
-		res.json(enrichedPRs);
+		const tableRows = enrichedPRs.map(
+			(pr) => `
+                <tr>
+                    <td><a href="${pr.html_url}" target="_blank">#${pr.number} - ${pr.title}</a></td>
+                    <td>${pr.head}</td>
+                    <td>${pr.reviewers.join(", ") || "None"}</td>
+                    <td>${pr.mergeable_state}</td>
+                    <td>${pr.ready_to_merge ? "✅ Ready" : "❌ Not Ready"}</td>
+                </tr>
+            `,
+		);
+
+		const html = `
+            <html>
+            <head><title>Pull Requests</title></head>
+            <body>
+                <h2>🔍 Open PRs for ${owner}/${repo}</h2>
+                <table border="1" cellpadding="5" cellspacing="0">
+                    <tr>
+                        <th>Title</th>
+                        <th>Branch</th>
+                        <th>Reviewers</th>
+                        <th>Mergeable State</th>
+                        <th>Ready to Merge?</th>
+                    </tr>
+                    ${tableRows.join("")}
+                </table>
+                <p><a href="/repos">⬅ Back to Repos</a></p>
+            </body>
+            </html>
+        `;
+
+		res.send(html);
 	} catch (err) {
 		res.status(500).send(`Failed to fetch enriched PRs: ${err}`);
 	}
