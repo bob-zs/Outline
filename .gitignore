@@ -6,3 +6,4 @@ dist/
 *.ignore.*
 data/
 jobs/
+tmp/

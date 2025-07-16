@@ -9,6 +9,8 @@ import path from "path";
 import { spawn } from "child_process";
 import fs from "fs";
 
+import createTestPR from "./scripts/createTestPR.Func";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -117,7 +119,7 @@ app.get("/repos", async (_req, res) => {
 						<td><a href="${r.html_url}" target="_blank">${r.name}</a></td>
 						<td>${r.full_name}</td>
 						<td>${r.private ? "🔒 Private" : "🌐 Public"}</td>
-						<td>${r.pr_count > 0 ? repoPullsLink : `0 PRs`}</td>
+						<td>${repoPullsLink}</td>
 					</tr>
 				`;
 			});
@@ -176,8 +178,6 @@ app.get("/repos/:owner/:repo/pulls", async (req, res) => {
 					html_url: pr.html_url,
 					head: pr.head.ref,
 					reviewers: pr.requested_reviewers.map((r) => r.login),
-					mergeable_state: pr.mergeable_state,
-					ready_to_merge: pr.mergeable_state === "clean",
 					statusIndicator,
 				};
 			}),
@@ -189,8 +189,6 @@ app.get("/repos/:owner/:repo/pulls", async (req, res) => {
 					<td><a href="${pr.html_url}" target="_blank">#${pr.number} - ${pr.title}</a></td>
 					<td>${pr.head}</td>
 					<td>${pr.reviewers.join(", ") || "None"}</td>
-					<td>${pr.mergeable_state}</td>
-					<td>${pr.ready_to_merge ? "✅ Ready" : "❌ Not Ready"}</td>
 					<td>${pr.statusIndicator}</td>
 					<td>
 						<form method="POST" action="/repos/${owner}/${repo}/pulls/${pr.number}/dispatch">
@@ -211,13 +209,15 @@ app.get("/repos/:owner/:repo/pulls", async (req, res) => {
 						<th>Title</th>
 						<th>Branch</th>
 						<th>Reviewers</th>
-						<th>Mergeable State</th>
-						<th>Ready to Merge?</th>
-						<th>Status</th>
 						<th>Actions</th>
 					</tr>
 					${tableRows.join("")}
 				</table>
+				<div>
+					<form method="POST" action="/repos/${owner}/${repo}/pulls">
+						<button type="submit">Create Test PR</button>
+					</form>
+				</div>
 				<p><a href="/repos">⬅ Back to Repos</a></p>
 			</body>
 			</html>
@@ -291,6 +291,16 @@ async function runJob({
 	log(`✅ Job complete`);
 	return { jobId, logs };
 }
+
+app.post("/repos/:owner/:repo/pulls", async (req, res) => {
+	const { owner, repo } = req.params;
+	try {
+		await createTestPR(owner, repo);
+		res.redirect(`/repos/${owner}/${repo}/pulls`);
+	} catch (err) {
+		res.status(500).send(`❌ Failed to create test PR: ${err}`);
+	}
+});
 
 app.post("/repos/:owner/:repo/pulls/:number/dispatch", async (req, res) => {
 	const { owner, repo, number } = req.params;
